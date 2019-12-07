@@ -1,0 +1,8 @@
+version: '2'
+services:
+    database:
+        image: "mysql:5"
+    server:
+        build: ./server
+        dependes_on:
+            - database
