@@ -15,7 +15,7 @@ repositories {
 
 
 dependencies {
-	//compile project(':shared')
+	compile project(':shared')
 	implementation 'io.grpc:grpc-netty-shaded:1.25.0'
 	implementation 'io.grpc:grpc-protobuf:1.25.0'
 	implementation 'io.grpc:grpc-stub:1.25.0'
