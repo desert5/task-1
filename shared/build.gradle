@@ -1,0 +1,50 @@
+plugins {
+	id 'java'
+	id 'com.google.protobuf' version '0.8.10'
+}
+
+group = 'betpawa.test'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '1.8'
+
+repositories {
+	mavenCentral()
+}
+
+protobuf {
+	protoc {
+		artifact = "com.google.protobuf:protoc:3.9.0"
+		generateProtoTasks.generatedFilesBaseDir = 'src'
+	}
+	plugins {
+		grpc {
+			artifact = 'io.grpc:protoc-gen-grpc-java:1.23.0'
+		}
+	}
+
+	generateProtoTasks {
+		all()*.plugins {
+			grpc {}
+		}
+	}
+}
+
+sourceSets {
+	main {
+		java {
+			srcDir 'src/main/grpc'
+		}
+		compileClasspath += sourceSets.main.runtimeClasspath
+	}
+}
+
+
+dependencies {
+	compile 'io.grpc:grpc-netty-shaded:1.25.0'
+	compile 'io.grpc:grpc-protobuf:1.25.0'
+	compile 'io.grpc:grpc-stub:1.25.0'
+}
+
+test {
+	useJUnitPlatform()
+}
