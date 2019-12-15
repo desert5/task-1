@@ -14,7 +14,7 @@ repositories {
 protobuf {
 	protoc {
 		artifact = "com.google.protobuf:protoc:3.9.0"
-		generateProtoTasks.generatedFilesBaseDir = 'src'
+		generateProtoTasks.generatedFilesBaseDir = 'shared/src'
 	}
 	plugins {
 		grpc {
@@ -26,6 +26,9 @@ protobuf {
 		all()*.plugins {
 			grpc {}
 		}
+		all().each { task ->
+			task.outputs.upToDateWhen { false }
+		}
 	}
 }
 
@@ -34,7 +37,6 @@ sourceSets {
 		java {
 			srcDir 'src/main/grpc'
 		}
-		compileClasspath += sourceSets.main.runtimeClasspath
 	}
 }
 

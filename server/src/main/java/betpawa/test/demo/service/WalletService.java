@@ -1,20 +1,21 @@
-package betpawa.test.demo;
+package betpawa.test.demo.service;
 
+import betpawa.test.demo.UserRepository;
 import betpawa.test.demo.grpc.*;
 import betpawa.test.demo.model.Currency;
 import betpawa.test.demo.model.User;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
+import org.lognet.springboot.grpc.GRpcService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-@Service
-public class WalletServer extends WalletServiceGrpc.WalletServiceImplBase
+@GRpcService
+public class WalletService extends WalletServiceGrpc.WalletServiceImplBase
 {
     @Autowired
     private UserRepository userRepository;

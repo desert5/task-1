@@ -1,8 +1,8 @@
 plugins {
 	id 'java'
-	id 'io.freefair.lombok'
-	id 'org.springframework.boot'
-	id 'io.spring.dependency-management'
+	id 'io.freefair.lombok' version '4.1.5'
+	id 'org.springframework.boot' version '2.2.1.RELEASE'
+	id 'io.spring.dependency-management' version '1.0.8.RELEASE'
 }
 
 group = 'betpawa.test'
@@ -15,6 +15,10 @@ repositories {
 
 
 dependencies {
+	compile project(':shared')
+	implementation 'io.grpc:grpc-stub:1.25.0'
+	implementation 'io.grpc:grpc-netty-shaded:1.25.0'
+	implementation 'io.grpc:grpc-protobuf:1.25.0'
 	testImplementation('org.springframework.boot:spring-boot-starter-test') {
 		exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
 	}
