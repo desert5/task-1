@@ -61,11 +61,8 @@ public class IntegrationTest
     {
         ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 6565).usePlaintext().build();
         WalletServiceGrpc.WalletServiceBlockingStub blockingStub = WalletServiceGrpc.newBlockingStub(channel);
-        WalletServiceGrpc.WalletServiceStub asyncStub = WalletServiceGrpc.newStub(channel);
 
-        PaymentResponse response = null;
-
-        response = blockingStub.withdraw(PaymentRequest.newBuilder()
+        PaymentResponse response = blockingStub.withdraw(PaymentRequest.newBuilder()
                 .setUserId(1)
                 .setAmount(new BigDecimal("100").toPlainString())
                 .setCurrency(PaymentRequest.Currency.EUR)

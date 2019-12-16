@@ -4,5 +4,7 @@ services:
         image: "mysql:5"
     server:
         build: ./server
-        dependes_on:
+        ports:
+          - "8080:8080"
+        depends_on:
             - database
