@@ -1,9 +1,8 @@
 package betpawa.test.demo.model;
 
 import lombok.Data;
-import org.hibernate.annotations.Cascade;
-import org.hibernate.annotations.CascadeType;
 
+import javax.persistence.CascadeType;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.OneToMany;
@@ -18,7 +17,6 @@ public class User
 
     private String name;
 
-    @OneToMany
-    @Cascade(CascadeType.ALL)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Wallet> wallets;
 }

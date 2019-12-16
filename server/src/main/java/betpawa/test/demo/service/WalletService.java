@@ -9,6 +9,7 @@ import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import org.lognet.springboot.grpc.GRpcService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -21,6 +22,7 @@ public class WalletService extends WalletServiceGrpc.WalletServiceImplBase
     private UserRepository userRepository;
 
     @Override
+    @Transactional
     public void deposit(PaymentRequest request, StreamObserver<PaymentResponse> responseObserver)
     {
         Currency requestCurrency;
@@ -48,6 +50,7 @@ public class WalletService extends WalletServiceGrpc.WalletServiceImplBase
     }
 
     @Override
+    @Transactional
     public void withdraw(PaymentRequest request, StreamObserver<PaymentResponse> responseObserver)
     {
         Currency requestCurrency;
@@ -84,6 +87,7 @@ public class WalletService extends WalletServiceGrpc.WalletServiceImplBase
     }
 
     @Override
+    @Transactional
     public void getBalance(BalanceRequest request, StreamObserver<BalanceResponse> responseObserver)
     {
         userRepository.findById(request.getUserId()).map(x -> x.getWallets().stream())
