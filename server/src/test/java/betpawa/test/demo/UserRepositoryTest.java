@@ -4,17 +4,17 @@ import betpawa.test.demo.model.Currency;
 import betpawa.test.demo.model.User;
 import betpawa.test.demo.model.Wallet;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.Optional;
 
 @DataJpaTest
-@Disabled
+@ActiveProfiles("local")
 public class UserRepositoryTest
 {
     @Autowired

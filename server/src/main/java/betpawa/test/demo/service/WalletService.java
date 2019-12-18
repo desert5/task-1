@@ -7,6 +7,7 @@ import betpawa.test.demo.model.User;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
+import lombok.extern.slf4j.Slf4j;
 import org.lognet.springboot.grpc.GRpcService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +16,7 @@ import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 @GRpcService
 public class WalletService extends WalletServiceGrpc.WalletServiceImplBase
 {
@@ -25,6 +27,8 @@ public class WalletService extends WalletServiceGrpc.WalletServiceImplBase
     @Transactional
     public void deposit(PaymentRequest request, StreamObserver<PaymentResponse> responseObserver)
     {
+        log.info("Got request to deposit " + request.getAmount() + " " + request.getCurrency().name() + " from user " + request.getUserId());
+
         Currency requestCurrency;
         BigDecimal requestAmount;
         try
@@ -39,13 +43,15 @@ public class WalletService extends WalletServiceGrpc.WalletServiceImplBase
         }
 
         Optional<User> user = userRepository.findById(request.getUserId());
-
         user.map(User::getWallets).flatMap(x -> x.stream()
                 .filter(it -> it.getCurrency() == requestCurrency)
                 .findAny())
-                .ifPresent(x -> x.setAmount(x.getAmount().add(requestAmount)));
-        user.ifPresent(x -> userRepository.save(x));
+                .ifPresent(x -> {
+                    x.setAmount(x.getAmount().add(requestAmount));
+                    userRepository.save(user.get());
+                });
 
+        responseObserver.onNext(PaymentResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
@@ -53,6 +59,8 @@ public class WalletService extends WalletServiceGrpc.WalletServiceImplBase
     @Transactional
     public void withdraw(PaymentRequest request, StreamObserver<PaymentResponse> responseObserver)
     {
+        log.info("Got request to withdraw " + request.getAmount() + " " + request.getCurrency().name() + " from user " + request.getUserId());
+
         Currency requestCurrency;
         BigDecimal requestAmount;
         try
@@ -67,38 +75,55 @@ public class WalletService extends WalletServiceGrpc.WalletServiceImplBase
         }
 
         Optional<User> user = userRepository.findById(request.getUserId());
-
-        Optional<BigDecimal> leftover = user.map(User::getWallets).flatMap(x -> x.stream()
-                .filter(it -> it.getCurrency() == requestCurrency)
-                .findAny())
-                .map(wallet -> wallet.getAmount().subtract(requestAmount));
-
-        if (leftover.isPresent() && leftover.get().compareTo(BigDecimal.ZERO) < 0)
-        {
-            responseObserver.onError(new StatusRuntimeException(Status.ABORTED.withDescription("insufficient_funds")));
-        }
-        else
-        {
-            //wallet.setAmount(leftover);
-            userRepository.save(user.get());
-        }
-
-        responseObserver.onCompleted();
+        user
+                .map(User::getWallets)
+                .flatMap(wallets -> wallets.stream()
+                        .filter(wallet -> wallet.getCurrency() == requestCurrency)
+                        .findAny())
+                .filter(wallet -> wallet.getAmount().subtract(requestAmount).compareTo(BigDecimal.ZERO) > 0)
+                .map(x -> {
+                    x.setAmount(x.getAmount().subtract(requestAmount));
+                    userRepository.save(user.get());
+                    responseObserver.onNext(PaymentResponse.newBuilder().build());
+                    responseObserver.onCompleted();
+                    return x;
+                })
+                .orElseGet(() -> {
+                    responseObserver.onError(new StatusRuntimeException(Status.ABORTED.withDescription("insufficient_funds")));
+                    return null;
+                });
     }
 
     @Override
     @Transactional
     public void getBalance(BalanceRequest request, StreamObserver<BalanceResponse> responseObserver)
     {
-        userRepository.findById(request.getUserId()).map(x -> x.getWallets().stream())
-                .ifPresent(wallets -> responseObserver.onNext(BalanceResponse.newBuilder().addAllAmount(wallets.map(balance ->
-                        PaymentRequest.newBuilder()
-                                .setAmount(balance.getAmount().toPlainString())
-                                .setCurrency(PaymentRequest.Currency.valueOf(balance.getCurrency().name()))
-                                .build())
-                        .collect(Collectors.toList()))
-                        .build())
-                );
-        responseObserver.onCompleted();
+        log.info("Got request to get balance for user " + request.getUserId());
+
+        userRepository.findById(request.getUserId())
+                .map(x -> x.getWallets().stream())
+                .map(wallets -> {
+                            StringBuilder logString = new StringBuilder("Balances are: ");
+
+                            responseObserver.onNext(BalanceResponse.newBuilder().addAllBalance(wallets.map(balance -> {
+                                logString.append(" ").append(balance.getCurrency().name()).append(" ").append(balance.getAmount().toPlainString());
+
+                                return Balance.newBuilder()
+                                        .setAmount(balance.getAmount().toPlainString())
+                                        .setCurrency(betpawa.test.demo.grpc.Currency.valueOf(balance.getCurrency().name()))
+                                        .build();
+                            })
+                                    .collect(Collectors.toList()))
+                                    .build());
+
+                            responseObserver.onCompleted();
+
+                            log.info(logString.toString());
+                            return wallets;
+                        }
+                ).orElseGet(() -> {
+            responseObserver.onError(new StatusRuntimeException(Status.ABORTED.withDescription("user_not_found")));
+            return null;
+        });
     }
 }

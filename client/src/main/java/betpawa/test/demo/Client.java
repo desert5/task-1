@@ -1,5 +1,6 @@
 package betpawa.test.demo;
 
+import betpawa.test.demo.grpc.Currency;
 import betpawa.test.demo.grpc.PaymentRequest;
 import betpawa.test.demo.grpc.PaymentResponse;
 import betpawa.test.demo.grpc.WalletServiceGrpc;
@@ -19,7 +20,7 @@ public class Client
         PaymentResponse response = blockingStub.deposit(PaymentRequest.newBuilder()
                 .setUserId(1)
                 .setAmount(BigDecimal.ONE.toPlainString())
-                .setCurrency(PaymentRequest.Currency.EUR)
+                .setCurrency(Currency.EUR)
                 .build()
         );
     }
