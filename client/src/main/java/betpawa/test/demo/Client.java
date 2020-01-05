@@ -34,6 +34,9 @@ public class Client implements ApplicationRunner {
 
     private static final Logger logger = LoggerFactory.getLogger(Client.class);
     private static final NoopFallback fallback = new NoopFallback();
+    private static final String ROUNDS_PARAM = "rounds";
+    private static final String THREADS_PARAM = "threads";
+    private static final String USERS_PARAM = "users";
 
     @Autowired
     private ApplicationContext context;
@@ -45,49 +48,62 @@ public class Client implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) throws InterruptedException
     {
-        Integer roundsPerThread = 10;
-        Integer threadsPerUser = 10;
+        Integer users = args.containsOption(USERS_PARAM) ? new Integer(args.getOptionValues(USERS_PARAM).get(0)) : 10;
+        Integer threadsPerUser = args.containsOption(THREADS_PARAM) ? new Integer(args.getOptionValues(THREADS_PARAM).get(0)) : 10;
+        Integer roundsPerThread = args.containsOption(ROUNDS_PARAM) ? new Integer(args.getOptionValues(ROUNDS_PARAM).get(0)) : 10;
 
         ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 6565).usePlaintext().build();
         WalletServiceGrpc.WalletServiceFutureStub service = WalletServiceGrpc.newFutureStub(channel);
-        ExecutorService executor = Executors.newFixedThreadPool(threadsPerUser);
         Random random = new Random();
 
-        Long userId = 1L;
+        logger.info("Starting execution emulating "
+                + users + " users, "
+                + threadsPerUser + " threads per user and "
+                + roundsPerThread + " rounds per thread");
 
-        List<Callable<FluentFuture<?>>> rounds = asList(
-                () -> roundA(service, newDirectExecutorService(), userId),
-                () -> roundB(service, newDirectExecutorService(), userId),
-                () -> roundC(service, newDirectExecutorService(), userId));
+        ArrayList<ExecutorService> executors = new ArrayList<>();
+        for (long u = 1; u <= users; ++u)
+        {
+            final Long userId = u;
+            ExecutorService executor = Executors.newFixedThreadPool(threadsPerUser);
+            executors.add(executor);
 
-        ArrayList<ListenableFuture<?>> join = new ArrayList<>();
+            List<Callable<FluentFuture<?>>> rounds = asList(
+                    () -> roundA(service, newDirectExecutorService(), userId),
+                    () -> roundB(service, newDirectExecutorService(), userId),
+                    () -> roundC(service, newDirectExecutorService(), userId));
 
-        for (int i = 0; i < threadsPerUser; ++i) {
-            executor.submit(() -> {
-                List<? extends FluentFuture<?>> futures = IntStream.range(0, roundsPerThread)
-                        .mapToObj((x) -> rounds.get(random.nextInt(rounds.size())))
-                        .map((fn) -> {
-                            try
-                            {
-                                return fn.call();
-                            }
-                            catch (Exception e)
-                            {
-                                logger.error("Exception during round invocation", e);
-                                return null;
-                            }
-                        })
-                        .collect(Collectors.toList());
-
-                join.add(Futures.allAsList(futures));
-            });
+            for (int i = 0; i < threadsPerUser; ++i) {
+                executor.submit(() -> {
+                    List<? extends FluentFuture<?>> futures = IntStream.range(0, roundsPerThread)
+                            .mapToObj((x) -> rounds.get(random.nextInt(rounds.size())))
+                            .map((fn) -> {
+                                try
+                                {
+                                    return fn.call();
+                                }
+                                catch (Exception e)
+                                {
+                                    logger.error("Exception during round invocation", e);
+                                    return null;
+                                }
+                            })
+                            .collect(Collectors.toList());
+                    logger.info("Thread is finished");
+                });
+            }
         }
 
-        executor.awaitTermination(1, TimeUnit.MINUTES);
-        Futures.whenAllComplete(join).run(() -> {
-            logger.info("All rounds completed");
-            System.exit(0);
-        }, newDirectExecutorService());
+        logger.info("Created " + executors.size() + " executor services. Waiting for them to finish");
+
+        for (ExecutorService executor : executors)
+        {
+            executor.awaitTermination(1, TimeUnit.MINUTES);
+            logger.info("Executor service " + executor.toString() + " finished");
+        }
+
+        logger.info("All rounds completed, all executor services are shut down");
+        System.exit(0);
     }
 
     private static FluentFuture<PaymentResponse> roundA(WalletServiceGrpc.WalletServiceFutureStub service, ExecutorService e, Long userId) {

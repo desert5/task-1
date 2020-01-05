@@ -7,6 +7,7 @@ import betpawa.test.demo.model.Wallet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -21,10 +22,13 @@ public class DemoDataLoader
     @Autowired
     private UserRepository repository;
 
+    @Value("${prepare.users}")
+    private Integer nUsers;
+
     @PostConstruct
     void loadData()
     {
-        for (long i = 1; i <= 10; ++i)
+        for (long i = 1; i <= nUsers; ++i)
         {
             final long current = i;
             repository.findById(i).orElseGet(() -> {
