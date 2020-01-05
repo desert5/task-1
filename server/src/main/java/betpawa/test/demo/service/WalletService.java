@@ -38,7 +38,7 @@ public class WalletService extends WalletServiceGrpc.WalletServiceImplBase
         }
         catch (Exception e)
         {
-            responseObserver.onError(new StatusRuntimeException(Status.ABORTED.withDescription("Unknown currency").withCause(e)));
+            responseObserver.onError(new StatusRuntimeException(Status.ABORTED.withDescription("unknown_currency").withCause(e)));
             return;
         }
 
@@ -70,7 +70,7 @@ public class WalletService extends WalletServiceGrpc.WalletServiceImplBase
         }
         catch (Exception e)
         {
-            responseObserver.onError(new StatusRuntimeException(Status.ABORTED.withDescription("Unknown currency").withCause(e)));
+            responseObserver.onError(new StatusRuntimeException(Status.ABORTED.withDescription("unknown_currency").withCause(e)));
             return;
         }
 
@@ -89,6 +89,7 @@ public class WalletService extends WalletServiceGrpc.WalletServiceImplBase
                     return x;
                 })
                 .orElseGet(() -> {
+                    log.error("User " + request.getUserId() + " have insufficient funds to withdraw " + requestAmount.toPlainString() + " " + requestCurrency.name());
                     responseObserver.onError(new StatusRuntimeException(Status.ABORTED.withDescription("insufficient_funds")));
                     return null;
                 });
@@ -103,7 +104,7 @@ public class WalletService extends WalletServiceGrpc.WalletServiceImplBase
         userRepository.findById(request.getUserId())
                 .map(x -> x.getWallets().stream())
                 .map(wallets -> {
-                            StringBuilder logString = new StringBuilder("Balances are: ");
+                            StringBuilder logString = new StringBuilder("For user " + request.getUserId() + " balances are: ");
 
                             responseObserver.onNext(BalanceResponse.newBuilder().addAllBalance(wallets.map(balance -> {
                                 logString.append(" ").append(balance.getCurrency().name()).append(" ").append(balance.getAmount().toPlainString());
@@ -113,8 +114,8 @@ public class WalletService extends WalletServiceGrpc.WalletServiceImplBase
                                         .setCurrency(betpawa.test.demo.grpc.Currency.valueOf(balance.getCurrency().name()))
                                         .build();
                             })
-                                    .collect(Collectors.toList()))
-                                    .build());
+                            .collect(Collectors.toList()))
+                            .build());
 
                             responseObserver.onCompleted();
 
@@ -122,8 +123,9 @@ public class WalletService extends WalletServiceGrpc.WalletServiceImplBase
                             return wallets;
                         }
                 ).orElseGet(() -> {
-            responseObserver.onError(new StatusRuntimeException(Status.ABORTED.withDescription("user_not_found")));
-            return null;
-        });
+                    log.error("Can not find user " + request.getUserId());
+                    responseObserver.onError(new StatusRuntimeException(Status.ABORTED.withDescription("user_not_found")));
+                    return null;
+                });
     }
 }
