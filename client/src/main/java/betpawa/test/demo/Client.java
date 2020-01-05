@@ -1,11 +1,11 @@
 package betpawa.test.demo;
 
 import betpawa.test.demo.grpc.*;
-import com.google.common.util.concurrent.FluentFuture;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.*;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -19,13 +19,17 @@ import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static java.util.Arrays.asList;
 
 @SpringBootApplication
 public class Client implements ApplicationRunner {
+
+    private static Logger logger = LoggerFactory.getLogger(Client.class);
 
     @Autowired
     private ApplicationContext context;
@@ -35,11 +39,12 @@ public class Client implements ApplicationRunner {
     }
 
     @Override
-    public void run(ApplicationArguments args) {
+    public void run(ApplicationArguments args) throws InterruptedException
+    {
         Integer roundsPerThread = 10;
         Integer threadsPerUser = 10;
 
-        ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 9999).usePlaintext().build();
+        ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 6565).usePlaintext().build();
         WalletServiceGrpc.WalletServiceFutureStub service = WalletServiceGrpc.newFutureStub(channel);
         ExecutorService executor = Executors.newFixedThreadPool(threadsPerUser);
         Random random = new Random();
@@ -47,25 +52,42 @@ public class Client implements ApplicationRunner {
         Long userId = 1L;
 
         List<Callable<FluentFuture<?>>> rounds = asList(
-                () -> roundA(service, executor, userId),
-                () -> roundB(service, executor, userId),
-                () -> roundC(service, executor, userId));
+                () -> roundA(service, newDirectExecutorService(), userId),
+                () -> roundB(service, newDirectExecutorService(), userId),
+                () -> roundC(service, newDirectExecutorService(), userId));
 
         ArrayList<ListenableFuture<?>> join = new ArrayList<>();
 
-        executor.submit(() -> {
-            List<? extends FluentFuture<?>> futures = IntStream.range(0, roundsPerThread)
-                    .mapToObj((i) -> rounds.get(random.nextInt(rounds.size())))
-                    .map((fn) -> fn.call())
-                    .collect(Collectors.toList());
+        for (int i = 0; i < threadsPerUser; ++i) {
+            executor.submit(() -> {
+                List<? extends FluentFuture<?>> futures = IntStream.range(0, roundsPerThread)
+                        .mapToObj((x) -> rounds.get(random.nextInt(rounds.size())))
+                        .map((fn) -> {
+                            try
+                            {
+                                return fn.call();
+                            }
+                            catch (Exception e)
+                            {
+                                logger.error("Exception during round invocation", e);
+                                return null;
+                            }
+                        })
+                        .collect(Collectors.toList());
 
-            join.add(Futures.allAsList(futures));
-        });
+                join.add(Futures.allAsList(futures));
+            });
+        }
 
-        Futures.whenAllComplete(join).call(() -> SpringApplication.exit(context, () -> 0), executor);
+        executor.awaitTermination(1, TimeUnit.MINUTES);
+        Futures.whenAllComplete(join).run(() -> {
+            logger.info("All rounds completed");
+            System.exit(0);
+        }, newDirectExecutorService());
     }
 
     private static FluentFuture<PaymentResponse> roundA(WalletServiceGrpc.WalletServiceFutureStub service, ExecutorService e, Long userId) {
+        logger.info("Creating round A sequence");
         return FluentFuture.from(service.deposit(PaymentRequest.newBuilder()
                         .setUserId(userId)
                         .setAmount("100")
@@ -100,6 +122,7 @@ public class Client implements ApplicationRunner {
     }
 
     private static FluentFuture<PaymentResponse> roundB(WalletServiceGrpc.WalletServiceFutureStub service, ExecutorService e, Long userId) {
+        logger.info("Creating round B sequence");
         return FluentFuture.from(service.withdraw(PaymentRequest.newBuilder()
                         .setUserId(userId)
                         .setAmount("100")
@@ -128,6 +151,7 @@ public class Client implements ApplicationRunner {
     }
 
     private static FluentFuture<BalanceResponse> roundC(WalletServiceGrpc.WalletServiceFutureStub service, ExecutorService e, Long userId) {
+        logger.info("Creating round C sequence");
         return FluentFuture.from(service.getBalance(BalanceRequest.newBuilder()
                         .setUserId(userId)
                         .build())
