@@ -1,0 +1,1 @@
+./gradlew task-1:client bootRun -Pargs=--users=2,--threads=2,--rounds=3
