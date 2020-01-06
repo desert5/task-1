@@ -46,13 +46,18 @@ public class WalletService extends WalletServiceGrpc.WalletServiceImplBase
         user.map(User::getWallets).flatMap(x -> x.stream()
                 .filter(it -> it.getCurrency() == requestCurrency)
                 .findAny())
-                .ifPresent(x -> {
-                    x.setAmount(x.getAmount().add(requestAmount));
+                .map(wallet -> {
+                    wallet.setAmount(wallet.getAmount().add(requestAmount));
                     userRepository.save(user.get());
-                });
 
-        responseObserver.onNext(PaymentResponse.newBuilder().build());
-        responseObserver.onCompleted();
+                    responseObserver.onNext(PaymentResponse.newBuilder().build());
+                    responseObserver.onCompleted();
+                    return wallet;
+                }).orElseGet(() -> {
+                    log.error("User " + request.getUserId() + " not found or does not have wallet for " + requestCurrency.name());
+                    responseObserver.onError(new StatusRuntimeException(Status.ABORTED.withDescription("not_found")));
+                    return null;
+                });
     }
 
     @Override
@@ -81,12 +86,12 @@ public class WalletService extends WalletServiceGrpc.WalletServiceImplBase
                         .filter(wallet -> wallet.getCurrency() == requestCurrency)
                         .findAny())
                 .filter(wallet -> wallet.getAmount().subtract(requestAmount).compareTo(BigDecimal.ZERO) > 0)
-                .map(x -> {
-                    x.setAmount(x.getAmount().subtract(requestAmount));
+                .map(wallet -> {
+                    wallet.setAmount(wallet.getAmount().subtract(requestAmount));
                     userRepository.save(user.get());
                     responseObserver.onNext(PaymentResponse.newBuilder().build());
                     responseObserver.onCompleted();
-                    return x;
+                    return wallet;
                 })
                 .orElseGet(() -> {
                     log.error("User " + request.getUserId() + " have insufficient funds to withdraw " + requestAmount.toPlainString() + " " + requestCurrency.name());
