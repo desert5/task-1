@@ -27,8 +27,7 @@ public class IntegrationTest
     private UserRepository repository;
 
     @Test
-    public void integration()
-    {
+    public void integration() throws InterruptedException {
         ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 6565).usePlaintext().build();
         WalletServiceGrpc.WalletServiceBlockingStub blockingStub = WalletServiceGrpc.newBlockingStub(channel);
 
@@ -47,9 +46,7 @@ public class IntegrationTest
                 .build()
         );
 
-        checkBalances(blockingStub.getBalance(BalanceRequest.newBuilder()
-                .setUserId(1)
-                .build()), new BigDecimal("100"));
+        checkBalances(blockingStub, "100");
 
         //////
 
@@ -68,9 +65,7 @@ public class IntegrationTest
                 .build()
         );
 
-        checkBalances(blockingStub.getBalance(BalanceRequest.newBuilder()
-                .setUserId(1)
-                .build()), new BigDecimal("200"));
+        checkBalances(blockingStub, "200");
 
 ///////////////
 
@@ -89,10 +84,7 @@ public class IntegrationTest
                 .build()
         );
 
-        checkBalances(blockingStub.getBalance(BalanceRequest.newBuilder()
-                .setUserId(1)
-                .build()), new BigDecimal("300"));
-
+        checkBalances(blockingStub, "300");
 
         blockingStub.withdraw(PaymentRequest.newBuilder()
                 .setUserId(1)
@@ -100,9 +92,7 @@ public class IntegrationTest
                 .setCurrency(USD)
                 .build());
 
-        checkBalances(blockingStub.getBalance(BalanceRequest.newBuilder()
-                .setUserId(1)
-                .build()), new BigDecimal("100"));
+        checkBalances(blockingStub, "100");
 
         /////
 
@@ -114,11 +104,18 @@ public class IntegrationTest
         ));
     }
 
-    private void checkBalances(BalanceResponse balance, BigDecimal usdBalance)
-    {
+    private void checkBalances(WalletServiceGrpc.WalletServiceBlockingStub blockingStub, String usdBalance) throws InterruptedException {
+
+        // Wait for transaction to commit on server side
+        Thread.sleep(50L);
+
+        BalanceResponse balance = blockingStub.getBalance(BalanceRequest.newBuilder()
+                .setUserId(1)
+                .build());
+
         Assertions.assertTrue(balance.getBalanceList().stream().filter(x -> x.getCurrency() == USD)
                 .findFirst()
-                .map(x -> new BigDecimal(x.getAmount()).compareTo(usdBalance) == 0)
+                .map(x -> new BigDecimal(x.getAmount()).compareTo(new BigDecimal(usdBalance)) == 0)
                 .orElse(Boolean.FALSE));
 
         Assertions.assertTrue(balance.getBalanceList().stream().filter(x -> x.getCurrency() == EUR)
