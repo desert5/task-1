@@ -10,6 +10,6 @@ services:
     server:
         build: ./server
         ports:
-          - "8080:8080"
+          - "6565:6565"
         depends_on:
             - database

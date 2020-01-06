@@ -1,1 +1,1 @@
-./gradlew task-1:client bootRun -Pargs=--users=2,--threads=2,--rounds=3
+./gradlew client:bootRun -Pargs=--users=2,--threads=2,--rounds=3 #-Dorg.gradle.java.home=/usr/lib/jvm/java-8-openjdk-amd64
