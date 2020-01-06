@@ -1,0 +1,5 @@
+Notes on GRPC demo application:
+- Works only with Java 8 because of javax.annotation.Generated used by grpc generator, so jdk installation needs to be specified explicitly in case you default java is not 8.
+For that you need to uncomment -Dorg.gradle.java.home option in .sh scripts and point it to jdk folder
+- To run setup you need to execute server.sh, and once spring is ready - client.sh
+- client.sh takes some time to terminate Service Executors in the end
